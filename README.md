@@ -5,7 +5,7 @@ This tool allows you to press a button to take a screenshot, send it to ChatGPT,
 ## Get Started
 
 1. Clone the repository.
-2. Create a file called `.env`.
+2. Create a file called `.env` and insert `OPENAI_API_KEY = "ABCD123456789"`
 3. Set up a Python environment.
 4. Install dependencies with `pip install -r requirements.txt`.
 5. Adjust the system prompt to your needs.
