@@ -2,6 +2,11 @@
 
 [This tool allows you to press a button to take a screenshot, send it to ChatGPT, and display the response as an overlay on the screen.](https://justquiz.co.nz/)
 
+
+## Example
+- Imagine your doing this quizz. You just press `-` key and the answer appears on the top left in a overlaybox after 1-2 second.
+![Example Screenshot](example.png)
+
 ## Get Started
 
 1. Clone the repository.
