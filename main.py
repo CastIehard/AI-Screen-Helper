@@ -10,7 +10,7 @@ SYSTEMPROMT = """I am doing a quizz that is in this image.
                 If its a sentence with a word missing then just return the word.
                 If its a dropdown provide the information needed to map all the left side stuff to the right side stuff.
                 If its an open Question return an normal answer as text.
-                Answer in plaintext in thi schema: "Question: Answer"
+                Answer in plaintext."
                 """
 
 # Load API key from .env
@@ -147,7 +147,7 @@ def main():
         gpt_output = f"Error: {e}"
 
     # Step 4: Update the overlay with the GPT output
-    update_overlay(gpt_output)
+    update_overlay("Answer:" + gpt_output)
     print("Main function completed.")
 
 
