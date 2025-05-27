@@ -22,10 +22,11 @@ client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
 root = None
 overlay = None
 label = None
+overlay_visible = False  # Tracks the visibility state of the overlay
 
 
 def initialize_overlay():
-    """Initialize the Tkinter overlay window with zero transparency."""
+    """Initialize the Tkinter overlay window."""
     global root, overlay, label
     print("Initializing Tkinter overlay...")
 
@@ -36,28 +37,55 @@ def initialize_overlay():
     overlay = tk.Toplevel(root)
     overlay.geometry("400x200+100+100")  # Adjust size and position
     overlay.attributes('-topmost', True)  # Always on top
-    overlay.attributes('-alpha', 0)  # Initially invisible
+    overlay.attributes('-alpha', 0.0)  # Initially invisible
     overlay.overrideredirect(True)  # No borders or title bar
-    overlay.configure(bg="black")
+    overlay.configure(bg="white")  # Set background to white
 
     # Add a label to the overlay
-    label = tk.Label(overlay, text="", font=("Helvetica", 14), fg="white", bg="black", wraplength=380)
+    label = tk.Label(
+        overlay,
+        text="",
+        font=("Helvetica", 14),
+        fg="black",  # Text color black for white background
+        bg="white",  # Label background white
+        wraplength=380
+    )
     label.pack(expand=True, padx=10, pady=10)
 
     print("Tkinter overlay initialized.")
 
 
-def update_overlay(text):
-    """Update the overlay window with text and make it visible for 5 seconds."""
-    global overlay, label
-    print("Updating overlay with new text...")
-    label.config(text=text)  # Update the label's text
-    overlay.attributes('-alpha', 0.8)  # Make the overlay visible
-    # Make the overlay truly topmost and always on top
-    overlay.wm_attributes('-topmost', 1)
-    root.after(5000, lambda: overlay.attributes('-alpha', 0.0))  # Hide after 5 seconds
-    print(f"Overlay updated with: {text}")
-    #bring the window to the front
+def update_overlay_visibility(text=None):
+    """
+    Show or hide the overlay. If text is provided, update and show.
+    Otherwise, toggle visibility based on current state.
+    """
+    global overlay, label, overlay_visible
+    
+    if text is not None:  # Called by main() to show with new content
+        print("Updating overlay with new text...")
+        label.config(text=text)
+        overlay.attributes('-alpha', 0.9)  # Make overlay visible (0.9 for slightly transparent white)
+        # overlay.attributes('-alpha', 1.0) # Use 1.0 for fully opaque white
+        overlay.wm_attributes('-topmost', 1)
+        overlay_visible = True
+        print(f"Overlay updated and shown with: {text}")
+    else:  # Called by on_press to toggle
+        if overlay_visible:
+            print("Hiding overlay...")
+            overlay.attributes('-alpha', 0.0)
+            overlay_visible = False
+        else:
+            # This case should ideally not be hit if only main shows it initially
+            # but if we want '-' to show it even without new content (e.g. last content)
+            # then we'd need to handle it. For now, main() handles showing.
+            print("Showing overlay (no new text, using previous)...") # Or handle as error
+            if label["text"]: # Only show if there's something to show
+                overlay.attributes('-alpha', 0.9)
+                overlay.wm_attributes('-topmost', 1)
+                overlay_visible = True
+            else:
+                print("No content to show in overlay.")
 
 
 def take_screenshot(margin_percent=10):
@@ -87,7 +115,7 @@ def encode_image_to_base64(image_path):
     with open(image_path, "rb") as image_file:
         img_b64_str = base64.b64encode(image_file.read()).decode('utf-8')
     img_type = "image/png"  # Update if using a different image format
-    print(f"Image encoded to Base64 successfully.")
+    print("Image encoded to Base64 successfully.")
     return img_b64_str, img_type
 
 
@@ -117,20 +145,32 @@ def send_to_gpt_with_image(prompt, img_b64_str, img_type):
 
 
 def on_press(key):
+    """Handle key press events."""
+    global overlay_visible # Needed to modify its value
     try:
         key_char = key.char if hasattr(key, 'char') else None
-        if key_char == '-':  # Check for the '-' key
-            print("'-' key pressed. Running main function...")
-            main()
+        if key_char == '-':
+            if not overlay_visible:
+                print("'-' key pressed. Running main function to show overlay...")
+                main_process() # This will show the overlay with new content
+            else:
+                print("'-' key pressed. Hiding overlay...")
+                overlay.attributes('-alpha', 0.0) # Hide overlay
+                overlay_visible = False
         elif key == keyboard.Key.esc:  # Exit on 'esc'
             print("Exiting program...")
-            root.quit()  # Stop the Tkinter loop
-            return False
+            if root:
+                root.quit()  # Stop the Tkinter loop
+            return False  # Stop the listener
     except AttributeError:
         print(f"Special key {key} pressed. Ignoring...")
 
 
-def main():
+def main_process():
+    """
+    Main logic: take screenshot, process with GPT, and update overlay.
+    This function is called when '-' is pressed and overlay is not visible.
+    """
     print("Main function started.")
     # Step 1: Take a screenshot
     screenshot_path = take_screenshot()
@@ -146,21 +186,30 @@ def main():
     except Exception as e:
         gpt_output = f"Error: {e}"
 
-    # Step 4: Update the overlay with the GPT output
-    update_overlay("Answer:" + gpt_output)
+    # Step 4: Update and show the overlay with the GPT output
+    update_overlay_visibility("Answer: " + gpt_output)
     print("Main function completed.")
 
 
 if __name__ == "__main__":
-    print("Press '-' to activate the script. Press 'esc' to exit.")
+    print("Press '-' to activate/deactivate the script. Press 'esc' to exit.")
 
     # Initialize the Tkinter overlay
     initialize_overlay()
 
     # Start the key listener
     print("Starting key listener...")
+    # Using a try-finally block to ensure listener stops if Tkinter loop errors
     listener = keyboard.Listener(on_press=on_press)
     listener.start()
 
-    # Start the Tkinter main loop on the main thread
-    root.mainloop()
+    try:
+        # Start the Tkinter main loop on the main thread
+        if root:
+            root.mainloop()
+    finally:
+        print("Stopping key listener...")
+        listener.stop()
+        listener.join() # Wait for listener thread to finish
+        print("Program terminated.")
+
